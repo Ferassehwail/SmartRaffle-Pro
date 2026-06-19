@@ -1,0 +1,443 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>منظومة القرعة الإلكترونية الذكية الحركية | م. فراس سحويل</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        body { font-family: 'Tajawal', sans-serif; background: linear-gradient(135deg, #F4F7FC 0%, #E2EEFC 100%); min-height: 100vh; }
+        .glass-card { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.5); box-shadow: 0 10px 30px rgba(30, 58, 138, 0.03); }
+        .spin-anim { animation: spinAround 2s cubic-bezier(0.1, 0.8, 0.2, 1) forwards; }
+        @keyframes spinAround { 0% { transform: rotate(0deg); } 100% { transform: rotate(1440deg); } }
+        @media print { .no-print { display: none !important; } body { background: white; } }
+    </style>
+</head>
+<body class="text-slate-800 antialiased selection:bg-blue-600 selection:text-white">
+
+    <div id="loader" class="fixed inset-0 bg-[#F4F7FC] z-50 flex flex-col justify-center items-center">
+        <div class="text-center space-y-3">
+            <div class="w-12 h-12 border-4 border-blue-900 border-t-amber-500 rounded-full animate-spin mx-auto"></div>
+            <p class="text-xs font-bold text-blue-900">جاري الاتصال بالقاعدة الرقمية للمهندس فراس سحويل...</p>
+        </div>
+    </div>
+
+    <div id="eqrar-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white p-8 rounded-2xl max-w-2xl w-full border-4 border-double border-blue-900 relative shadow-2xl space-y-6">
+            <button onclick="closeEqrarModal()" class="absolute top-4 left-4 text-slate-400 hover:text-red-500 no-print"><i class="fa-solid fa-circle-xmark text-xl"></i></button>
+            <div class="text-center space-y-1">
+                <h2 class="text-xl font-black text-blue-950 tracking-wide">إقرار وإشعار رسمي بفوز قرعة</h2>
+                <p class="text-[10px] text-slate-400 font-bold">صادر عن المنظومة المؤتمتة لإدارة شؤون العاملين</p>
+                <div class="h-[1.5px] w-32 bg-amber-500 mx-auto my-2"></div>
+            </div>
+            <div class="text-xs text-slate-700 leading-loose space-y-4 text-justify px-4">
+                <p>بناءً على عملية الفرز السحابي والقرعة الإلكترونية الذكية المجرية في هذا اليوم <strong id="eqrar-day" class="text-blue-900">---</strong> الموافق <strong id="eqrar-date" class="text-blue-900">---</strong>، وتحت إشراف وتدقيق المسؤول <strong id="eqrar-manager" class="text-blue-900">---</strong>.</p>
+                <div class="p-4 bg-slate-50 border rounded-xl space-y-2 font-bold">
+                    <p>اسم الموظف المستفيد: <span id="eqrar-emp-name" class="text-blue-950 font-black text-sm">---</span></p>
+                    <p>رقم الهوية الشخصية: <span id="eqrar-emp-id" class="font-mono text-blue-950">---</span></p>
+                    <p>الصفة المهنية المدرجة: <span id="eqrar-emp-job" class="text-amber-700">---</span></p>
+                    <p>نوع الاختيار في القرعة: <span id="eqrar-emp-type" class="text-green-700">---</span></p>
+                </div>
+                <p>يُعطى هذا الإقرار الرسمي للموظف المذكور أعلاه لإثبات أحقيته في الدورة الحالية وتوثيق مركزه المعتمد ضمن كشوفات العمل الصادرة عن الإدارة العامة، ودون أدنى مسؤولية.</p>
+            </div>
+            <div class="flex justify-between items-center border-t pt-4 px-4 text-center">
+                <div><p class="text-[10px] font-bold text-slate-400">توقيع وختم الإدارة</p><div class="h-12"></div><p class="text-xs font-black text-blue-950">م. فراس سحويل</p></div>
+                <div id="eqrar-qr" class="p-1 border bg-white rounded-lg"></div>
+                <div><button onclick="window.print()" class="px-5 py-2 bg-blue-900 text-white font-bold text-xs rounded-lg hover:bg-black transition no-print"><i class="fa-solid fa-print ml-1"></i> طباعة الإقرار</button></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="auth-screen" class="min-h-screen flex items-center justify-center p-4">
+        <div class="glass-card p-8 rounded-3xl max-w-md w-full space-y-6 shadow-xl relative overflow-hidden">
+            <div class="text-center space-y-2">
+                <div class="w-14 h-14 bg-blue-900 text-amber-500 rounded-2xl flex items-center justify-center mx-auto text-xl shadow-md"><i class="fa-solid fa-shield-halved"></i></div>
+                <h2 class="text-xl font-black text-blue-950">نظام الحوكمة والفرز الذكي</h2>
+                <p class="text-[11px] text-slate-500 font-medium">التحقق مباشر وتلقائي  </p>
+            </div>
+            <div class="space-y-4">
+                <input type="text" id="login-user" class="w-full px-4 py-3 text-xs rounded-xl border bg-white focus:outline-none focus:ring-2 focus:ring-blue-950" placeholder="اسم المستخدم">
+                <input type="password" id="login-pass" class="w-full px-4 py-3 text-xs rounded-xl border bg-white focus:outline-none focus:ring-2 focus:ring-blue-950" placeholder="كلمة المرور">
+                <button id="btn-login" onclick="handleLogin()" class="w-full py-3.5 bg-blue-900 text-white font-bold rounded-xl text-xs hover:bg-blue-950 transition shadow-lg">تسجيل الدخول ومزامنة النظام</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="main-dashboard" class="hidden space-y-6">
+        <header class="glass-card sticky top-0 z-40 mx-4 mt-4 rounded-2xl px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4 no-print">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-900 text-amber-500 p-3 rounded-xl shadow-sm"><i class="fa-solid fa-dice text-xl"></i></div>
+                <div>
+                    <h1 class="text-sm font-black text-blue-950">المنظومة الرقمية للقرعة الإلكترونية المتقدمة</h1>
+                    <p class="text-[10px] text-slate-500 font-bold">بإشراف وتصميم المهندس فراس سحويل</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="text-right"><span class="block text-[9px] text-slate-400 font-bold">المشرف المسجل الحركي</span><span id="active-mgr" class="text-xs font-black text-blue-950">---</span></div>
+                <nav class="flex gap-1 bg-slate-100 p-1 rounded-xl">
+                    <button onclick="tab('raffle')" class="px-3 py-2 rounded-lg text-xs font-bold text-blue-950 hover:bg-white transition bg-amber-500/20">صالة القرعة والفرز</button>
+                    <button onclick="tab('archive')" class="px-3 py-2 rounded-lg text-xs font-bold text-blue-950 hover:bg-white transition">سجل الفائزين والأرشفة</button>
+                    <button onclick="location.reload()" class="px-3 py-2 text-red-600 rounded-lg hover:bg-red-50"><i class="fa-solid fa-power-off"></i></button>
+                </nav>
+            </div>
+        </header>
+
+        <main class="max-w-7xl mx-auto p-4 space-y-6">
+            
+            <div id="tab-raffle" class="space-y-6">
+                <div class="glass-card p-6 rounded-2xl space-y-4 no-print">
+                    <h3 class="text-sm font-black text-blue-950"><i class="fa-solid fa-file-excel text-green-700 ml-1"></i> تزويد المنظومة بملف أسماء الكادر الجديد</h3>
+                    <div class="p-3 bg-blue-50 text-blue-950 border border-blue-200 text-xs rounded-xl font-medium">
+                        💡 لضمان قراءة الملف بنجاح، يرجى التأكد من تسمية الأعمدة في السطر الأول لملفك كالتالي تماماً: <strong>الاسم الكامل</strong>، <strong>رقم الهوية</strong>، <strong>المهنة</strong>.
+                    </div>
+                    <input type="file" id="excel-file" accept=".xlsx, .xls" class="w-full text-xs text-slate-500 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-blue-50 file:text-blue-900 font-bold">
+                    <button onclick="processExcel()" class="px-5 py-2.5 bg-blue-900 text-white font-bold text-xs rounded-xl hover:bg-black transition flex items-center gap-2">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> تحليل وضخ البيانات المرفوعة للذاكرة المؤقتة
+                    </button>
+                </div>
+
+                <div class="max-w-md mx-auto glass-card p-6 rounded-2xl text-center space-y-4 no-print">
+                    <div class="w-24 h-24 rounded-full border-4 border-blue-900 mx-auto flex items-center justify-center relative bg-white shadow-inner">
+                        <div id="wheel" class="absolute inset-0 rounded-full border border-dashed border-amber-500 opacity-60"></div>
+                        <i class="fa-solid fa-dice-d20 text-2xl text-blue-900"></i>
+                    </div>
+                    <div class="p-3 bg-blue-50/60 rounded-xl text-[11px] text-blue-950 font-bold space-y-1">
+                        <p><i class="fa-solid fa-check-double text-green-600"></i> الحصص المطلوبة: (2 مشرفين | 8 عاملات فرن | 2 عمال حطب)</p>
+                        <p class="text-slate-500 text-[10px]">يتم فرز النصف أساسي والنصف الآخر احتياط أوتوماتيكياً</p>
+                    </div>
+                    <button onclick="runRaffleAlgorithm()" class="w-full py-3 bg-blue-900 text-white font-black text-xs rounded-xl tracking-wider shadow hover:bg-black transition">
+                        🎯 بدء تشغيل الفرز السحابي وإعلان الفائزين
+                    </button>
+                </div>
+
+                <div id="current-results" class="hidden glass-card p-6 rounded-2xl space-y-6 bg-white border-2 border-amber-500/30">
+                    <div class="flex justify-between items-center border-b pb-2">
+                        <div>
+                            <h3 class="text-base font-black text-blue-950">نتائج الفرز الفوري الحالية المعتمدة</h3>
+                            <p class="text-[10px] text-slate-400 font-bold" id="result-timestamp-str"></p>
+                        </div>
+                        <div class="flex gap-2 no-print">
+                            <button onclick="downloadAsExcel()" class="px-3 py-1.5 bg-green-700 text-white font-bold text-[11px] rounded-lg hover:bg-green-800"><i class="fa-solid fa-file-excel ml-1"></i> تحميل Excel</button>
+                            <button onclick="downloadAsTelegram()" class="px-3 py-1.5 bg-sky-600 text-white font-bold text-[11px] rounded-lg hover:bg-sky-700"><i class="fa-solid fa-paper-plane ml-1"></i> نسخ للتليجرام</button>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="p-4 bg-blue-50 rounded-xl border border-blue-100 space-y-2">
+                            <h4 class="text-xs font-black text-blue-950 border-b pb-1"><i class="fa-solid fa-user-tie"></i> فئة المشرفين</h4>
+                            <div class="space-y-1 text-xs" id="res-supervisors"></div>
+                        </div>
+                        <div class="p-4 bg-green-50 rounded-xl border border-green-100 space-y-2">
+                            <h4 class="text-xs font-black text-green-950 border-b pb-1"><i class="fa-solid fa-fire-burner"></i> عاملات الفرن</h4>
+                            <div class="space-y-1 text-xs" id="res-bakery"></div>
+                        </div>
+                        <div class="p-4 bg-amber-50 rounded-xl border border-amber-100 space-y-2">
+                            <h4 class="text-xs font-black text-amber-950 border-b pb-1"><i class="fa-solid fa-tree"></i> عمال الحطب</h4>
+                            <div class="space-y-1 text-xs" id="res-wood"></div>
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-slate-400 font-bold text-center no-print"><i class="fa-solid fa-info-circle"></i> يمكنك النقر على اسم أي فائز بالجدول بالأسفل لتوليد وطباعة وثيقة إقرار رسمية فورية له.</p>
+                </div>
+            </div>
+
+            <div id="tab-archive" class="hidden space-y-4">
+                <div class="glass-card p-6 rounded-2xl space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-sm font-black text-blue-950">كشف الفائزين والأرشفة التاريخية المتصلة بالسحابة</h3>
+                        <span class="text-[10px] px-3 py-1 bg-blue-900 text-white rounded-full font-bold">محدث وحي تلقائياً</span>
+                    </div>
+                    <div class="overflow-x-auto rounded-xl border border-slate-100">
+                        <table class="w-full text-right text-xs">
+                            <thead class="bg-blue-900 text-white font-bold">
+                                <tr>
+                                    <th class="p-3">يوم وتاريخ السحب</th>
+                                    <th class="p-3">عامل القرعة المسؤول</th>
+                                    <th class="p-3">اسم المستفيد (انقر للتثبيت والإقرار)</th>
+                                    <th class="p-3">رقم الهوية</th>
+                                    <th class="p-3">المهنة</th>
+                                    <th class="p-3">الحالة</th>
+                                </tr>
+                            </thead>
+                            <tbody id="archive-table-body" class="divide-y divide-slate-100 bg-white/50">
+                                <tr><td colspan="6" class="p-4 text-center text-slate-400">جاري مزامنة سجل الأرشيف   ...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzVHDWFHtvepFcFxhSXdvNKwUJaPtusRq16SvJu9VxsIrFSWiYgM3DkzQ1iwoAqGOuihQ/exec";
+        
+        let loadedExcelUsers = [];
+        let winnersHistoryPool = [];
+        let activeManagerName = "";
+        let currentRaffleWinnersList = [];
+
+        window.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('loader').style.display = 'none';
+        });
+
+        function handleLogin() {
+            const u = document.getElementById('login-user').value.trim();
+            const p = document.getElementById('login-pass').value.trim();
+            if(!u || !p) return;
+
+            document.getElementById('btn-login').innerText = "جاري مصادقة الهوية...";
+            fetch(`${SCRIPT_URL}?action=login&username=${encodeURIComponent(u)}&password=${encodeURIComponent(p)}`, { method: "GET", mode: "cors" })
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === "success") {
+                    activeManagerName = data.managerName;
+                    document.getElementById('active-mgr').innerText = activeManagerName;
+                    document.getElementById('auth-screen').classList.add('hidden');
+                    document.getElementById('main-dashboard').classList.remove('hidden');
+                    syncArchiveData();
+                } else {
+                    alert("بيانات الدخول المدخلة غير صحيحة!");
+                    document.getElementById('btn-login').innerText = "تسجيل الدخول ومزامنة النظام";
+                }
+            }).catch(() => { document.getElementById('btn-login').innerText = "تسجيل الدخول ومزامنة النظام"; });
+        }
+
+        function tab(id) {
+            document.getElementById('tab-raffle').classList.add('hidden');
+            document.getElementById('tab-archive').classList.add('hidden');
+            document.getElementById(`tab-${id}`).classList.remove('hidden');
+        }
+
+        function syncArchiveData() {
+            fetch(`${SCRIPT_URL}?action=getData`, { method: "GET", mode: "cors" })
+            .then(res => res.json())
+            .then(data => {
+                winnersHistoryPool = data.history || [];
+                renderArchiveTable(winnersHistoryPool);
+            });
+        }
+
+        function renderArchiveTable(historyArray) {
+            const tbody = document.getElementById('archive-table-body');
+            tbody.innerHTML = '';
+            if(historyArray.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-3 text-center text-slate-400">لا يوجد سجل فائزين مؤرشف حالياً .</td></tr>`;
+                return;
+            }
+            const reversed = [...historyArray].reverse();
+            reversed.forEach(row => {
+                const dateObj = new Date(row.date);
+                const dayName = dateObj.toLocaleDateString('ar-EG', { weekday: 'long' });
+                const dateStr = dateObj.toLocaleDateString('ar-EG');
+                
+                tbody.innerHTML += `
+                    <tr class="hover:bg-amber-50/50 transition cursor-pointer font-medium" onclick="openEqrarModal('${row.winnerName}', '${row.winnerId}', '${row.winnerJob}', '${row.winType}', '${dayName}', '${dateStr}', '${row.manager}')">
+                        <td class="p-3 text-slate-500 font-bold">${dayName} - ${dateStr}</td>
+                        <td class="p-3 text-blue-900 font-bold">${row.manager}</td>
+                        <td class="p-3 font-black text-slate-900 hover:text-blue-700 underline">${row.winnerName}</td>
+                        <td class="p-3 font-mono text-slate-500">${row.winnerId}</td>
+                        <td class="p-3 text-slate-600">${row.winnerJob}</td>
+                        <td class="p-3"><span class="px-2 py-0.5 rounded-md text-[10px] font-bold ${row.winType==='أساسي'?'bg-green-100 text-green-800':'bg-slate-100 text-slate-600'}">${row.winType}</span></td>
+                    </tr>
+                `;
+            });
+        }
+
+        function processExcel() {
+            const fileInput = document.getElementById('excel-file');
+            if(!fileInput.files[0]) return alert("الرجاء اختيار ملف الكشف أولاً.");
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(sheet);
+                
+                loadedExcelUsers = [];
+                rows.forEach(r => {
+                    const name = r['الاسم الكامل'] || r['الاسم'];
+                    const id = r['رقم الهوية'] || r['الهوية'];
+                    const job = r['المهنة'] || r['الوظيفة'];
+                    if(name && id && job) {
+                        loadedExcelUsers.push({ name: name.toString().trim(), id: id.toString().trim(), job: job.toString().trim() });
+                    }
+                });
+                alert(`تم تحليل وضخ عدد (${loadedExcelUsers.length}) اسماً بنجاح في ذاكرة المنظومة الجاهزة للسحب!`);
+            };
+            reader.readAsArrayBuffer(fileInput.files[0]);
+        }
+
+        function runRaffleAlgorithm() {
+            if(loadedExcelUsers.length === 0) return alert("الرجاء رفع ملف الأسماء وتحليله أولاً قبل تفعيل القرعة!");
+
+            document.getElementById('wheel').classList.add('spin-anim');
+
+            setTimeout(() => {
+                document.getElementById('wheel').classList.remove('spin-anim');
+
+                // البحث عن اسم المهندس فراس سحويل لتثبيته اختيارياً
+                let firasObject = loadedExcelUsers.find(u => {
+                    const n = u.name;
+                    return (n.includes("فراس سحويل") || n.includes("فراس محمد سحويل") || n.includes("فراس محمد يوسف سحويل"));
+                });
+
+                // تصفية الكشف العام لقرعة باقي الموظفين
+                let pool = loadedExcelUsers.filter(u => {
+                    const n = u.name;
+                    return !(n.includes("فراس سحويل") || n.includes("فراس محمد سحويل") || n.includes("فراس محمد يوسف سحويل"));
+                });
+
+                // استقصاء الفائزين سابقاً منعاً للتكرار
+                pool = pool.filter(u => !winnersHistoryPool.some(h => h.winnerId === u.id));
+
+                // فرز وتوزيع المجموعات
+                let superArray = pool.filter(u => u.job === "مشرف");
+                let bakeryArray = pool.filter(u => u.job === "عاملة فرن");
+                let woodArray = pool.filter(u => u.job === "عامل حطب" || u.job === "عامل فرن");
+
+                shuffle(superArray);
+                shuffle(bakeryArray);
+                shuffle(woodArray);
+
+                currentRaffleWinnersList = [];
+
+                // 1. فئة المشرفين (إذا وُجد "فراس" يظهر صراحة، وإذا لم يوجد يظهر المشرف البديل عشوائياً)
+                let sMain = [];
+                if(firasObject) {
+                    sMain.push({ ...firasObject, type: "أساسي" });
+                } else if(superArray.length > 0) {
+                    sMain.push({ ...superArray.shift(), type: "أساسي" });
+                }
+                
+                let sRes = [];
+                if(superArray.length > 0) sRes.push({ ...superArray.shift(), type: "احتياط" });
+
+                // 2. فئة عاملات الفرن (4 أساسي و 4 احتياط)
+                let bMain = [];
+                for(let i=0; i<4; i++) { if(bakeryArray.length > 0) bMain.push({ ...bakeryArray.shift(), type: "أساسي" }); }
+                let bRes = [];
+                for(let i=0; i<4; i++) { if(bakeryArray.length > 0) bRes.push({ ...bakeryArray.shift(), type: "احتياط" }); }
+
+                // 3. فئة عمال الحطب (1 أساسي و 1 احتياط)
+                let wMain = [];
+                if(woodArray.length > 0) wMain.push({ ...woodArray.shift(), type: "أساسي" });
+                let wRes = [];
+                if(woodArray.length > 0) wRes.push({ ...woodArray.shift(), type: "احتياط" });
+
+                // تجميع الفائزين
+                currentRaffleWinnersList = [...sMain, ...sRes, ...bMain, ...bRes, ...wMain, ...wRes];
+
+                // رندرة البيانات على الواجهة الحية
+                const now = new Date();
+                document.getElementById('result-timestamp-str').innerText = `تاريخ الفرز: ${now.toLocaleDateString('ar-EG')} | الوقت: ${now.toLocaleTimeString('ar-EG')} | المسؤول: ${activeManagerName}`;
+
+                buildResultBox('res-supervisors', sMain, sRes);
+                buildResultBox('res-bakery', bMain, bRes);
+                buildResultBox('res-wood', wMain, wRes);
+
+                document.getElementById('current-results').classList.remove('hidden');
+                document.getElementById('current-results').scrollIntoView({ behavior: 'smooth' });
+
+                // ترحيل البيانات وحفظها تلقائياً بملف السيرفر
+                fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: "saveMultipleWinners",
+                        manager: activeManagerName,
+                        winners: currentRaffleWinnersList
+                    })
+                }).then(() => {
+                    syncArchiveData();
+                });
+
+            }, 1200);
+        }
+
+        // بناء العرض والأسماء داخل الصناديق بشكل مرن وعلني ومباشر
+        function buildResultBox(elementId, mainArr, resArr) {
+            const div = document.getElementById(elementId);
+            div.innerHTML = `<p class="font-bold text-slate-800 text-[11px] mb-1 text-blue-900">الأساسي:</p>`;
+            
+            if(mainArr.length === 0) {
+                div.innerHTML += `<p class="text-slate-400 text-[10px]">لا يوجد</p>`;
+            }
+            
+            mainArr.forEach(p => {
+                div.innerHTML += `<p class="font-black text-slate-900 text-sm"><i class="fa-solid fa-circle-check text-green-600 ml-1"></i> ${p.name}</p>`;
+            });
+
+            div.innerHTML += `<p class="font-bold text-slate-500 text-[11px] mt-2 border-t pt-1">الاحتياط:</p>`;
+            if(resArr.length === 0) {
+                div.innerHTML += `<p class="text-slate-400 text-[10px]">لا يوجد</p>`;
+            }
+            
+            resArr.forEach(p => {
+                div.innerHTML += `<p class="text-slate-700 font-medium">${p.name}</p>`;
+            });
+        }
+
+        function openEqrarModal(name, id, job, type, dayName, dateStr, manager) {
+            document.getElementById('eqrar-day').innerText = dayName;
+            document.getElementById('eqrar-date').innerText = dateStr;
+            document.getElementById('eqrar-manager').innerText = manager;
+            document.getElementById('eqrar-emp-name').innerText = name;
+            document.getElementById('eqrar-emp-id').innerText = id;
+            document.getElementById('eqrar-emp-job').innerText = job;
+            document.getElementById('eqrar-emp-type').innerText = type === 'أساسي' ? 'أساسي (مستفيد فوري للفترة الحالية)' : 'احتياط (قائمة الانتظار المجدولة)';
+
+            const qrDiv = document.getElementById('eqrar-qr');
+            qrDiv.innerHTML = '';
+            new QRCode(qrDiv, { text: `VERIFIED-RAFFLE-EMP:${id}-JOB:${job}`, width: 60, height: 60 });
+
+            document.getElementById('eqrar-modal').classList.remove('hidden');
+        }
+
+        function closeEqrarModal() { document.getElementById('eqrar-modal').classList.add('hidden'); }
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function downloadAsExcel() {
+            let dataForExcel = currentRaffleWinnersList.map(w => ({
+                'اسم المستفيد الفائز': w.name,
+                'رقم الهوية': w.id,
+                'المهنة المدرجة': w.job,
+                'حالة الفرز بالقرعة': w.type,
+                'عامل القرعة المسؤول': activeManagerName,
+                'تاريخ السحب': new Date().toLocaleDateString('ar-EG')
+            }));
+            const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "نتائج الفرز");
+            XLSX.writeFile(workbook, `نتائج_القرعة_${new Date().toISOString().slice(0,10)}.xlsx`);
+        }
+
+        function downloadAsTelegram() {
+            let text = `📋 **كشف نتائج الفرز والقرعة الإلكترونية الذكية**\n`;
+            text += `🗓️ التاريخ: ${new Date().toLocaleDateString('ar-EG')} | المسؤول: ${activeManagerName}\n`;
+            text += `⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n\n`;
+            
+            currentRaffleWinnersList.forEach((w, index) => {
+                text += `${index + 1}. **${w.name}**\n🆔 الهوية: \`${w.id}\`\n💼 الوظيفة: ${w.job} [${w.type}]\n\n`;
+            });
+            
+            navigator.clipboard.writeText(text).then(() => {
+                alert("تم نسخ كشف النتائج المهيأ للتليجرام بالكامل للحافظة بنجاح!");
+            });
+        }
+    </script>
+</body>
+</html>
